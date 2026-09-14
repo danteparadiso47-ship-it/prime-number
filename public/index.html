@@ -19,10 +19,19 @@
       input:focus { border-color:var(--blue); box-shadow:0 0 0 4px rgba(23,70,209,.12); }
       button { border:0; border-radius:12px; padding:0 20px; cursor:pointer; color:white; background:var(--blue); font:750 15px inherit; transition:transform .15s,background .15s; }
       button:hover { background:var(--blue-dark); } button:active { transform:translateY(1px); }
-      #result { min-height:96px; margin-top:24px; padding:20px; border-radius:14px; background:#f4f7fc; display:flex; align-items:center; line-height:1.65; font-size:16px; }
+      #result { min-height:70px; margin-top:24px; padding:20px; border-radius:14px; background:#f4f7fc; display:flex; align-items:center; line-height:1.65; font-size:16px; }
       #result strong { color:var(--blue); } .hint { margin:23px 0 0; color:var(--muted); font-size:13px; line-height:1.6; }
       .code-note { margin-top:28px; padding-top:18px; border-top:1px solid var(--line); color:var(--muted); font-size:12px; }
-      @media (max-width:480px) { .card{padding:32px 24px}.input-row{display:grid;grid-template-columns:1fr}.input-row button{height:52px} }
+      .flow { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin-top:22px; }
+      .flow-step { padding:12px; border:1px solid var(--line); border-radius:10px; color:var(--muted); font-size:12px; font-weight:700; text-align:center; transition:.25s; }
+      .flow-step.active { color:white; border-color:var(--blue); background:var(--blue); box-shadow:0 5px 15px rgba(23,70,209,.2); }
+      .trace { margin-top:16px; padding:18px; border:1px solid var(--line); border-radius:14px; background:#fbfcff; }
+      .trace-head { display:flex; justify-content:space-between; gap:12px; align-items:baseline; } .trace h2 { margin:0; font-size:15px; letter-spacing:-.03em; } .trace-status { color:var(--muted); font-size:12px; }
+      .calculation { min-height:43px; margin:16px 0 12px; padding:11px 13px; border-radius:9px; color:var(--blue); background:#e9efff; font:600 13px/1.6 ui-monospace,SFMono-Regular,Consolas,monospace; }
+      .remainder-list { display:flex; flex-wrap:wrap; gap:7px; min-height:34px; } .remainder { min-width:37px; padding:7px; border-radius:8px; color:var(--muted); background:#eef1f6; font:700 12px ui-monospace,SFMono-Regular,Consolas,monospace; text-align:center; opacity:.45; transform:scale(.94); transition:.2s; }
+      .remainder.checked { color:var(--ink); opacity:1; transform:scale(1); } .remainder.divisor { color:#a22727; background:#ffe9e9; outline:2px solid #f1aaaa; }
+      .trace-message { min-height:20px; margin:14px 0 0; color:var(--muted); font-size:13px; line-height:1.5; }
+      @media (max-width:480px) { .card{padding:32px 24px}.input-row{display:grid;grid-template-columns:1fr}.input-row button{height:52px}.flow{grid-template-columns:1fr}.flow-step{text-align:left} }
     </style>
   </head>
   <body>
@@ -36,43 +45,120 @@
         <button id="checkButton" type="button">판별하기</button>
       </div>
       <div id="result" role="status" aria-live="polite">숫자를 입력해 주세요.</div>
+      <section class="flow" aria-label="프로그램 실행 순서">
+        <div class="flow-step" data-step="input">1. user_input()</div>
+        <div class="flow-step" data-step="main">2. main()</div>
+        <div class="flow-step" data-step="prime">3. prime(x)</div>
+      </section>
+      <section class="trace" aria-live="polite" aria-label="소수 판별 과정">
+        <div class="trace-head"><h2>실행 과정</h2><span class="trace-status" id="traceStatus">대기 중</span></div>
+        <div class="calculation" id="calculation">숫자를 입력하면 나눗셈 과정을 표시합니다.</div>
+        <div class="remainder-list" id="remainderList"></div>
+        <p class="trace-message" id="traceMessage">각 칸은 <code>x % i</code>의 결과입니다.</p>
+      </section>
       <p class="hint" id="hint">소수는 1보다 크고, 1과 자기 자신으로만 나누어떨어지는 정수입니다.</p>
-      <p class="code-note">함수 <code>isPrime()</code>과 <code>for</code> 반복문으로 판별합니다.</p>
+      <p class="code-note"><code>user_input() → prime(x) → main()</code> 구조로 판별합니다.</p>
     </main>
     <script>
       const input = document.querySelector('#numberInput');
       const result = document.querySelector('#result');
       const button = document.querySelector('#checkButton');
+      const calculation = document.querySelector('#calculation');
+      const remainderList = document.querySelector('#remainderList');
+      const traceStatus = document.querySelector('#traceStatus');
+      const traceMessage = document.querySelector('#traceMessage');
+      const flowSteps = document.querySelectorAll('.flow-step');
+      let runId = 0;
 
-      // 함수: 2부터 제곱근까지 반복하며 나누어떨어지는지 검사합니다.
-      function isPrime(number) {
-        if (number < 2) return false;
-        for (let divisor = 2; divisor * divisor <= number; divisor += 1) {
-          if (number % divisor === 0) return false;
-        }
-        return true;
+      function activateStep(step) {
+        flowSteps.forEach((element) => element.classList.toggle('active', element.dataset.step === step));
       }
 
-      function checkNumber() {
+      // Python의 input()에 해당: 입력값을 정수로 바꾸어 반환합니다.
+      function user_input() {
         const text = input.value.trim();
-        const number = Number(text);
+        const x = Number(text);
 
-        if (text === '' || !Number.isSafeInteger(number)) {
+        if (text === '' || !Number.isSafeInteger(x)) {
           result.innerHTML = '정수가 아닙니다. <strong>정수로 다시 입력해 주세요.</strong>';
           input.focus();
-          return;
+          return null;
         }
 
-        if (isPrime(number)) {
-          result.innerHTML = `<strong>${number}</strong>은(는) 소수입니다.`;
+        activateStep('input');
+        result.innerHTML = `입력한 수: <strong>${x}</strong>`;
+        return x;
+      }
+
+      // 원래 Python prime(x) 함수의 조건과 rest 리스트 구조를 그대로 옮겼습니다.
+      function prime(x) {
+        const currentRun = ++runId;
+        activateStep('prime');
+        remainderList.innerHTML = '';
+
+        if (x < 2) {
+          traceStatus.textContent = '판별 완료';
+          calculation.textContent = `${x} < 2`;
+          traceMessage.textContent = '소수는 2 이상인 정수여야 합니다.';
+          result.innerHTML = `<strong>${x}</strong>은(는) 소수가 아닙니다.`;
         } else {
-          result.innerHTML = `<strong>${number}</strong>은(는) 소수가 아닙니다.`;
+          const rest = Array.from({ length: x - 2 }, (_, index) => x % (index + 2));
+          const cells = rest.map((value, index) => {
+            const cell = document.createElement('span');
+            cell.className = 'remainder';
+            cell.textContent = `${index + 2} → ${value}`;
+            remainderList.append(cell);
+            return cell;
+          });
+
+          traceStatus.textContent = '나머지 계산 중';
+          traceMessage.textContent = `rest = [${rest.join(', ')}]`;
+          result.textContent = '2부터 차례로 나누어 보고 있습니다…';
+
+          let index = 0;
+          const showNext = () => {
+            if (currentRun !== runId) return;
+            if (index === rest.length) {
+              traceStatus.textContent = '판별 완료';
+              calculation.textContent = 'rest 안에 0이 없습니다.';
+              result.innerHTML = `<strong>${x}</strong>은(는) 소수입니다.`;
+              return;
+            }
+
+            const divisor = index + 2;
+            const remainder = rest[index];
+            calculation.textContent = `${x} % ${divisor} = ${remainder}`;
+            cells[index].classList.add('checked');
+
+            if (remainder === 0) {
+              cells[index].classList.add('divisor');
+              traceStatus.textContent = '약수 발견';
+              traceMessage.textContent = `${divisor}로 나누어떨어지므로 rest 안에 0이 있습니다.`;
+              result.innerHTML = `<strong>${x}</strong>은(는) 소수가 아닙니다.`;
+              return;
+            }
+
+            index += 1;
+            window.setTimeout(showNext, 280);
+          };
+
+          showNext();
         }
       }
 
-      button.addEventListener('click', checkNumber);
+      // 원래 main()과 동일하게 입력을 받고 prime() 함수에 전달합니다.
+      function main() {
+        ++runId;
+        const num = user_input();
+        if (num !== null) {
+          activateStep('main');
+          window.setTimeout(() => prime(num), 220);
+        }
+      }
+
+      button.addEventListener('click', main);
       input.addEventListener('keydown', (event) => {
-        if (event.key === 'Enter') checkNumber();
+        if (event.key === 'Enter') main();
       });
     </script>
   </body>
