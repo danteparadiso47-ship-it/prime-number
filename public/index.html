@@ -9,7 +9,7 @@
       :root { --blue:#1746d1; --blue-dark:#1037ad; --ink:#16213a; --muted:#68738a; --line:#dce3f0; --paper:#f8faff; --white:#fff; }
       * { box-sizing:border-box; }
       body { min-height:100vh; margin:0; display:grid; place-items:center; padding:24px; color:var(--ink); background:linear-gradient(135deg,#f8faff 0%,#edf3ff 100%); font-family:Inter,"Noto Sans KR",system-ui,sans-serif; }
-      .card { width:min(100%,560px); padding:48px; background:rgba(255,255,255,.92); border:1px solid var(--line); border-radius:24px; box-shadow:0 22px 60px rgba(23,70,209,.1); }
+      .card { width:min(100%,760px); padding:48px; background:rgba(255,255,255,.92); border:1px solid var(--line); border-radius:24px; box-shadow:0 22px 60px rgba(23,70,209,.1); }
       .label { display:inline-flex; padding:7px 10px; border-radius:999px; color:var(--blue); background:#e9efff; font-size:12px; font-weight:800; letter-spacing:.08em; }
       h1 { margin:18px 0 10px; font-size:clamp(30px,6vw,44px); letter-spacing:-.06em; }
       .intro { margin:0 0 32px; color:var(--muted); line-height:1.7; }
@@ -31,6 +31,12 @@
       .remainder-list { display:flex; flex-wrap:wrap; gap:7px; min-height:34px; } .remainder { min-width:37px; padding:7px; border-radius:8px; color:var(--muted); background:#eef1f6; font:700 12px ui-monospace,SFMono-Regular,Consolas,monospace; text-align:center; opacity:.45; transform:scale(.94); transition:.2s; }
       .remainder.checked { color:var(--ink); opacity:1; transform:scale(1); } .remainder.divisor { color:#a22727; background:#ffe9e9; outline:2px solid #f1aaaa; }
       .trace-message { min-height:20px; margin:14px 0 0; color:var(--muted); font-size:13px; line-height:1.5; }
+      .code-panel { margin-top:16px; overflow:hidden; border:1px solid #1d2944; border-radius:14px; background:#101a30; color:#dce8ff; }
+      .code-panel h2 { margin:0; padding:13px 17px; border-bottom:1px solid rgba(220,232,255,.16); font-size:13px; }
+      .code { overflow:auto; padding:11px 0; font:500 12px/1.75 ui-monospace,SFMono-Regular,Consolas,monospace; white-space:pre; }
+      .code-line { display:block; padding:0 16px; transition:background .18s,color .18s; } .code-line.active { color:white; background:rgba(96,145,255,.34); box-shadow:inset 3px 0 #8db2ff; }
+      .line-number { display:inline-block; width:28px; color:#7584a3; user-select:none; }
+      .variables { display:flex; flex-wrap:wrap; gap:8px; margin-top:12px; } .variable { padding:7px 10px; border-radius:8px; color:#3d4c69; background:#edf1f7; font:600 12px ui-monospace,SFMono-Regular,Consolas,monospace; }
       @media (max-width:480px) { .card{padding:32px 24px}.input-row{display:grid;grid-template-columns:1fr}.input-row button{height:52px}.flow{grid-template-columns:1fr}.flow-step{text-align:left} }
     </style>
   </head>
@@ -55,6 +61,11 @@
         <div class="calculation" id="calculation">숫자를 입력하면 나눗셈 과정을 표시합니다.</div>
         <div class="remainder-list" id="remainderList"></div>
         <p class="trace-message" id="traceMessage">각 칸은 <code>x % i</code>의 결과입니다.</p>
+        <div class="variables" aria-label="현재 변수 값"><span class="variable" id="variableX">x = ?</span><span class="variable" id="variableI">i = ?</span><span class="variable" id="variableRest">rest = []</span></div>
+      </section>
+      <section class="code-panel" aria-label="실행 중인 원본 파이썬 코드">
+        <h2>원본 Python 코드 — 현재 실행 줄</h2>
+        <div class="code"><span class="code-line" data-line="user"><span class="line-number">01</span>def user_input():</span><span class="code-line" data-line="input"><span class="line-number">02</span>    x = int(input(...))</span><span class="code-line" data-line="return"><span class="line-number">04</span>    return x</span><span class="code-line"><span class="line-number">05</span></span><span class="code-line" data-line="prime"><span class="line-number">06</span>def prime(x):</span><span class="code-line" data-line="condition"><span class="line-number">07</span>    if x &lt; 2:</span><span class="code-line" data-line="rest"><span class="line-number">10</span>        rest = [x % i for i in range(2, x)]</span><span class="code-line" data-line="iterate"><span class="line-number">10</span>                 └ x % i  # i가 매 반복마다 변경</span><span class="code-line" data-line="contains"><span class="line-number">11</span>        if 0 in rest:</span><span class="code-line" data-line="output"><span class="line-number">12</span>            print(...)</span><span class="code-line" data-line="main"><span class="line-number">16</span>def main(): num = user_input(); prime(num)</span></div>
       </section>
       <p class="hint" id="hint">소수는 1보다 크고, 1과 자기 자신으로만 나누어떨어지는 정수입니다.</p>
       <p class="code-note"><code>user_input() → prime(x) → main()</code> 구조로 판별합니다.</p>
@@ -70,12 +81,25 @@
       const flowSteps = document.querySelectorAll('.flow-step');
       let runId = 0;
 
+      function activateLine(line) {
+        document.querySelectorAll('.code-line').forEach((element) => {
+          element.classList.toggle('active', element.dataset.line === line);
+        });
+      }
+
+      function setVariables(x, i, rest) {
+        document.querySelector('#variableX').textContent = `x = ${x ?? '?'}`;
+        document.querySelector('#variableI').textContent = `i = ${i ?? '?'}`;
+        document.querySelector('#variableRest').textContent = `rest = [${rest.join(', ')}]`;
+      }
+
       function activateStep(step) {
         flowSteps.forEach((element) => element.classList.toggle('active', element.dataset.step === step));
       }
 
       // Python의 input()에 해당: 입력값을 정수로 바꾸어 반환합니다.
       function user_input() {
+        activateLine('input');
         const text = input.value.trim();
         const x = Number(text);
 
@@ -87,6 +111,8 @@
 
         activateStep('input');
         result.innerHTML = `입력한 수: <strong>${x}</strong>`;
+        setVariables(x, null, []);
+        activateLine('return');
         return x;
       }
 
@@ -95,14 +121,19 @@
         const currentRun = ++runId;
         activateStep('prime');
         remainderList.innerHTML = '';
+        activateLine('prime');
 
         if (x < 2) {
+          activateLine('condition');
           traceStatus.textContent = '판별 완료';
           calculation.textContent = `${x} < 2`;
           traceMessage.textContent = '소수는 2 이상인 정수여야 합니다.';
           result.innerHTML = `<strong>${x}</strong>은(는) 소수가 아닙니다.`;
         } else {
           const rest = Array.from({ length: x - 2 }, (_, index) => x % (index + 2));
+          const visibleRest = [];
+          activateLine('rest');
+          setVariables(x, null, visibleRest);
           const cells = rest.map((value, index) => {
             const cell = document.createElement('span');
             cell.className = 'remainder';
@@ -112,34 +143,41 @@
           });
 
           traceStatus.textContent = '나머지 계산 중';
-          traceMessage.textContent = `rest = [${rest.join(', ')}]`;
+          traceMessage.textContent = '리스트 컴프리헨션이 i = 2부터 x - 1까지 반복됩니다.';
           result.textContent = '2부터 차례로 나누어 보고 있습니다…';
 
           let index = 0;
           const showNext = () => {
             if (currentRun !== runId) return;
             if (index === rest.length) {
+              activateLine('contains');
               traceStatus.textContent = '판별 완료';
-              calculation.textContent = 'rest 안에 0이 없습니다.';
-              result.innerHTML = `<strong>${x}</strong>은(는) 소수입니다.`;
+              const hasZero = rest.includes(0);
+              calculation.textContent = `0 in rest → ${hasZero}`;
+              traceMessage.textContent = `모든 반복이 끝났습니다. rest 안에 0${hasZero ? '이 있으므로' : '이 없으므로'} 판별합니다.`;
+              activateLine('output');
+              result.innerHTML = hasZero
+                ? `<strong>${x}</strong>은(는) 소수가 아닙니다.`
+                : `<strong>${x}</strong>은(는) 소수입니다.`;
               return;
             }
 
             const divisor = index + 2;
             const remainder = rest[index];
+            visibleRest.push(remainder);
+            activateLine('iterate');
             calculation.textContent = `${x} % ${divisor} = ${remainder}`;
             cells[index].classList.add('checked');
+            setVariables(x, divisor, visibleRest);
 
             if (remainder === 0) {
               cells[index].classList.add('divisor');
-              traceStatus.textContent = '약수 발견';
-              traceMessage.textContent = `${divisor}로 나누어떨어지므로 rest 안에 0이 있습니다.`;
-              result.innerHTML = `<strong>${x}</strong>은(는) 소수가 아닙니다.`;
-              return;
+              traceStatus.textContent = '0을 rest에 추가';
+              traceMessage.textContent = `${divisor}로 나누어떨어졌지만, 원본 코드는 모든 i에 대한 rest를 끝까지 만듭니다.`;
             }
 
             index += 1;
-            window.setTimeout(showNext, 280);
+            window.setTimeout(showNext, Math.max(55, Math.min(260, 1800 / rest.length)));
           };
 
           showNext();
@@ -148,12 +186,18 @@
 
       // 원래 main()과 동일하게 입력을 받고 prime() 함수에 전달합니다.
       function main() {
-        ++runId;
-        const num = user_input();
-        if (num !== null) {
-          activateStep('main');
-          window.setTimeout(() => prime(num), 220);
-        }
+        const currentRun = ++runId;
+        activateLine('main');
+        activateStep('main');
+
+        window.setTimeout(() => {
+          if (currentRun !== runId) return;
+          const num = user_input();
+          if (num !== null) {
+            activateLine('main');
+            window.setTimeout(() => prime(num), 220);
+          }
+        }, 220);
       }
 
       button.addEventListener('click', main);
