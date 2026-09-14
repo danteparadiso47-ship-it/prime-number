@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="정수의 소수 여부를 판별하는 간단한 웹 앱" />
+    <title>Prime Check | 소수 판별기</title>
+    <style>
+      :root { --blue:#1746d1; --blue-dark:#1037ad; --ink:#16213a; --muted:#68738a; --line:#dce3f0; --paper:#f8faff; --white:#fff; }
+      * { box-sizing:border-box; }
+      body { min-height:100vh; margin:0; display:grid; place-items:center; padding:24px; color:var(--ink); background:linear-gradient(135deg,#f8faff 0%,#edf3ff 100%); font-family:Inter,"Noto Sans KR",system-ui,sans-serif; }
+      .card { width:min(100%,560px); padding:48px; background:rgba(255,255,255,.92); border:1px solid var(--line); border-radius:24px; box-shadow:0 22px 60px rgba(23,70,209,.1); }
+      .label { display:inline-flex; padding:7px 10px; border-radius:999px; color:var(--blue); background:#e9efff; font-size:12px; font-weight:800; letter-spacing:.08em; }
+      h1 { margin:18px 0 10px; font-size:clamp(30px,6vw,44px); letter-spacing:-.06em; }
+      .intro { margin:0 0 32px; color:var(--muted); line-height:1.7; }
+      label { display:block; margin-bottom:9px; font-size:14px; font-weight:750; }
+      .input-row { display:flex; gap:10px; }
+      input { min-width:0; flex:1; padding:15px 16px; border:1.5px solid var(--line); border-radius:12px; color:var(--ink); font:600 18px/1 inherit; outline:none; transition:border .2s,box-shadow .2s; }
+      input:focus { border-color:var(--blue); box-shadow:0 0 0 4px rgba(23,70,209,.12); }
+      button { border:0; border-radius:12px; padding:0 20px; cursor:pointer; color:white; background:var(--blue); font:750 15px inherit; transition:transform .15s,background .15s; }
+      button:hover { background:var(--blue-dark); } button:active { transform:translateY(1px); }
+      #result { min-height:96px; margin-top:24px; padding:20px; border-radius:14px; background:#f4f7fc; display:flex; align-items:center; line-height:1.65; font-size:16px; }
+      #result strong { color:var(--blue); } .hint { margin:23px 0 0; color:var(--muted); font-size:13px; line-height:1.6; }
+      .code-note { margin-top:28px; padding-top:18px; border-top:1px solid var(--line); color:var(--muted); font-size:12px; }
+      @media (max-width:480px) { .card{padding:32px 24px}.input-row{display:grid;grid-template-columns:1fr}.input-row button{height:52px} }
+    </style>
+  </head>
+  <body>
+    <main class="card">
+      <span class="label">PRIME CHECK</span>
+      <h1>소수 판별기</h1>
+      <p class="intro">정수를 입력하면 소수인지 바로 알려드립니다.</p>
+      <label for="numberInput">정수 입력</label>
+      <div class="input-row">
+        <input id="numberInput" inputmode="numeric" autocomplete="off" placeholder="예: 17" aria-describedby="hint" />
+        <button id="checkButton" type="button">판별하기</button>
+      </div>
+      <div id="result" role="status" aria-live="polite">숫자를 입력해 주세요.</div>
+      <p class="hint" id="hint">소수는 1보다 크고, 1과 자기 자신으로만 나누어떨어지는 정수입니다.</p>
+      <p class="code-note">함수 <code>isPrime()</code>과 <code>for</code> 반복문으로 판별합니다.</p>
+    </main>
+    <script>
+      const input = document.querySelector('#numberInput');
+      const result = document.querySelector('#result');
+      const button = document.querySelector('#checkButton');
+
+      // 함수: 2부터 제곱근까지 반복하며 나누어떨어지는지 검사합니다.
+      function isPrime(number) {
+        if (number < 2) return false;
+        for (let divisor = 2; divisor * divisor <= number; divisor += 1) {
+          if (number % divisor === 0) return false;
+        }
+        return true;
+      }
+
+      function checkNumber() {
+        const text = input.value.trim();
+        const number = Number(text);
+
+        if (text === '' || !Number.isSafeInteger(number)) {
+          result.innerHTML = '정수가 아닙니다. <strong>정수로 다시 입력해 주세요.</strong>';
+          input.focus();
+          return;
+        }
+
+        if (isPrime(number)) {
+          result.innerHTML = `<strong>${number}</strong>은(는) 소수입니다.`;
+        } else {
+          result.innerHTML = `<strong>${number}</strong>은(는) 소수가 아닙니다.`;
+        }
+      }
+
+      button.addEventListener('click', checkNumber);
+      input.addEventListener('keydown', (event) => {
+        if (event.key === 'Enter') checkNumber();
+      });
+    </script>
+  </body>
+</html>
